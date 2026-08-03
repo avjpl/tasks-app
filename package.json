@@ -1,0 +1,28 @@
+{
+  "name": "tasks-app",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "dev:api": "npm run dev --workspace @tasks/api",
+    "dev:web": "npm run dev --workspace @tasks/web",
+    "lint": "biome lint .",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "validate": "npm run check && npm run typecheck && npm run test && npm run build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

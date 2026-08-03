@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.idea/
+coverage/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.DS_Store
