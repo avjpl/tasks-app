@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tasks-app
+  namespace: tasks-app
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - tasks.home.arpa
+      secretName: tasks-app-tls
+  rules:
+    - host: tasks.home.arpa
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: tasks-api
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tasks-web
+                port:
+                  name: http
