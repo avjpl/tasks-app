@@ -8,7 +8,7 @@ afterEach(() => vi.restoreAllMocks());
 it('loads and creates tasks', async () => {
   const fetchMock = vi
     .spyOn(globalThis, 'fetch')
-    .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 200 }))
+    .mockResolvedValueOnce(new Response(JSON.stringify([]), { status: 201 }))
     .mockResolvedValueOnce(new Response(JSON.stringify({ id: '1' }), { status: 201 }))
     .mockResolvedValueOnce(
       new Response(JSON.stringify([{ id: '1', title: 'Deploy safely' }]), { status: 200 }),
