@@ -1,11 +1,11 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../base
+- ../../base
 images:
-  - name: tasks-api
-    newName: ghcr.io/avjpl/tasks-api
-    newTag: initial
-  - name: tasks-web
-    newName: ghcr.io/avjpl/tasks-web
-    newTag: initial
+- name: tasks-api
+  newName: ghcr.io/avjpl/tasks-api
+  newTag: 08a1dcad0e9d
+- name: tasks-web
+  newName: ghcr.io/avjpl/tasks-web
+  newTag: 08a1dcad0e9d
