@@ -5,7 +5,7 @@ resources:
 images:
 - name: tasks-api
   newName: ghcr.io/avjpl/tasks-api
-  newTag: 08a7d8cd899f
+  newTag: 32c1203cccb6
 - name: tasks-web
   newName: ghcr.io/avjpl/tasks-web
-  newTag: 08a7d8cd899f
+  newTag: 32c1203cccb6
