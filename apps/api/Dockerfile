@@ -16,6 +16,6 @@ COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 RUN npm ci --omit=dev --workspace @tasks/api && npm cache clean --force
 COPY --from=build /workspace/apps/api/dist apps/api/dist
-USER node
+USER 1000:1000
 EXPOSE 3000
 CMD ["node", "apps/api/dist/server.js"]
