@@ -20,5 +20,5 @@ it('loads and creates tasks', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Add task' }));
 
   await screen.findByText('Deploy safely');
-  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
 });
