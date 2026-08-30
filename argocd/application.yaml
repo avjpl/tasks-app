@@ -1,0 +1,30 @@
+# Location: argocd/application.yaml
+# Purpose: Application-owned Argo CD deployment definition for the homelab.
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tasks-app
+
+  # This dedicated control namespace will be created and authorized by
+  # home-lab. It is deliberately separate from argocd and the workload.
+  namespace: argocd-app-tasks-app
+spec:
+  # The security boundary remains owned by home-lab.
+  project: tasks-app
+
+  source:
+    repoURL: https://github.com/avjpl/tasks-app.git
+    targetRevision: main
+    path: k8s/overlays/homelab
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tasks-app
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
