@@ -1,0 +1,8 @@
+# Location: argocd/kustomization.yaml
+# Purpose: Render the Application control object registered by home-lab.
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - application.yaml
