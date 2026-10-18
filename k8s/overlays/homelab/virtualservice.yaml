@@ -1,0 +1,28 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: tasks
+  namespace: tasks-app
+spec:
+  hosts: [tasks.home.arpa]
+  gateways: [istio-ingress/homelab-edge]
+  exportTo: ['.', istio-ingress]
+  http:
+    - match: [{port: 80}]
+      redirect: {scheme: https, redirectCode: 308}
+    - match:
+        - port: 443
+          uri: {exact: /api}
+        - port: 443
+          uri: {prefix: /api/}
+      route:
+        - destination:
+            host: tasks-api.tasks-app.svc.cluster.local
+            port: {number: 80}
+    - match:
+        - port: 443
+          uri: {prefix: /}
+      route:
+        - destination:
+            host: tasks-web.tasks-app.svc.cluster.local
+            port: {number: 80}
