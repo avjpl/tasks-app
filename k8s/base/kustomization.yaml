@@ -11,4 +11,3 @@ resources:
   - web.yaml
   - networkpolicy.yaml
   - certificate.yaml
-  - ingress.yaml
