@@ -30,42 +30,6 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-ingress-to-web
-  namespace: tasks-app
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: tasks-web
-  policyTypes: ["Ingress"]
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              app.kubernetes.io/name: ingress-nginx
-      ports:
-        - { protocol: TCP, port: 8080 }
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-ingress-to-api
-  namespace: tasks-app
-spec:
-  podSelector:
-    matchLabels:
-      app.kubernetes.io/name: tasks-api
-  policyTypes: ["Ingress"]
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              app.kubernetes.io/name: ingress-nginx
-      ports:
-        - { protocol: TCP, port: 3000 }
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
   name: api-data-egress
   namespace: tasks-app
 spec:
