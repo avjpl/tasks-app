@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
   packages: write
 
 concurrency:
@@ -18,12 +18,18 @@ jobs:
   publish-and-promote:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    env:
+      GIT_AUTHOR_NAME: github-actions[bot]
+      GIT_COMMITTER_NAME: github-actions[bot]
+      GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+      GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
     steps:
       - name: Check out the exact tested revision
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
+          path: source
 
       - uses: docker/setup-buildx-action@v4
 
@@ -43,8 +49,8 @@ jobs:
       - name: Build and push API
         uses: docker/build-push-action@v7
         with:
-          context: .
-          file: apps/api/Dockerfile
+          context: source
+          file: source/apps/api/Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/tasks-api:${{ steps.meta.outputs.tag }}
           cache-from: type=gha,scope=tasks-api
@@ -53,8 +59,8 @@ jobs:
       - name: Build and push web
         uses: docker/build-push-action@v7
         with:
-          context: .
-          file: apps/web/Dockerfile
+          context: source
+          file: source/apps/web/Dockerfile
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/tasks-web:${{ steps.meta.outputs.tag }}
           cache-from: type=gha,scope=tasks-web
@@ -62,17 +68,17 @@ jobs:
 
       - uses: imranismail/setup-kustomize@v3
 
-      - name: Promote immutable image tags
-        working-directory: k8s/overlays/homelab
-        run: >-
-          kustomize edit set image
-          tasks-api=ghcr.io/${{ github.repository_owner }}/tasks-api:${{ steps.meta.outputs.tag }}
-          tasks-web=ghcr.io/${{ github.repository_owner }}/tasks-web:${{ steps.meta.outputs.tag }}
+      - name: Check out deployment desired state
+        uses: actions/checkout@v7
+        with:
+          repository: avjpl/application-deployments
+          ref: main
+          fetch-depth: 0
+          path: deployments
+          ssh-key: ${{ secrets.DEPLOYMENTS_SSH_KEY }}
+          ssh-strict: true
 
-      - name: Commit desired state
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add k8s/overlays/homelab/kustomization.yaml
-          git commit -m "chore(deploy): promote ${{ steps.meta.outputs.tag }}"
-          git push origin HEAD:main
+      - name: Promote tested images to deployment repository
+        env:
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: bash source/scripts/promote-deployment.sh "$GITHUB_WORKSPACE/deployments" "$GITHUB_WORKSPACE/source" "$TESTED_SHA"

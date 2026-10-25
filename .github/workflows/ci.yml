@@ -4,8 +4,6 @@ on:
   pull_request:
   push:
     branches: [main]
-    paths-ignore:
-      - "k8s/overlays/homelab/kustomization.yaml"
 
 permissions:
   contents: read
@@ -24,6 +22,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+
+      - name: Deployment promotion tests
+        run: python3 -B -m unittest discover -s tests/deployment
 
       - name: Biome check
         run: npm run check
