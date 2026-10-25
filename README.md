@@ -41,5 +41,5 @@ Run its offline tests with:
 python3 -B -m unittest discover -s tests/deployment
 ```
 
-Migration status: source handoff is verified; the release workflow will be resumed
-after CI validates this migration revision.
+Migration status: source handoff is verified and the release workflow is enabled.
+Successful main-branch CI now promotes tested images into application-deployments.
