@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   publish-and-promote:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository }}
     runs-on: ubuntu-latest
     env:
       GIT_AUTHOR_NAME: github-actions[bot]
@@ -24,6 +24,15 @@ jobs:
       GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
       GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
     steps:
+      - name: Verify tested main revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          [[ "$TESTED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Invalid tested revision" >&2; exit 1; }
+          current="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          [[ "$current" == "$TESTED_SHA" ]] || { echo "Tested revision was superseded" >&2; exit 1; }
+
       - name: Check out the exact tested revision
         uses: actions/checkout@v7
         with:

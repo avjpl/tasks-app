@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -105,6 +106,51 @@ if os.environ.get('RACE_ORIGIN') and not pathlib.Path(os.environ['RACE_MARKER'])
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.remote('concurrent.txt'), 'preserve this edit')
         self.assertEqual(self.remote(OVERLAY), 'tag: ' + self.sha[:12] + '\n')
+
+class ReleaseTrustTests(unittest.TestCase):
+    def setUp(self):
+        self.workflow = (SCRIPT.parents[1] / '.github/workflows/release.yml').read_text()
+
+    def test_privileged_job_accepts_only_successful_same_repo_main_push(self):
+        expression = re.search(r'^    if: \$\{\{ (.+) \}\}$', self.workflow, re.M).group(1)
+        def permitted(run):
+            terms = expression.split(' && ')
+            outcomes = []
+            for term in terms:
+                match = re.fullmatch(r"github\.event\.workflow_run\.([a-z_.]+) == ('[^']*'|github.repository)", term)
+                self.assertIsNotNone(match, 'Unexpected trust expression: ' + term)
+                value = run
+                for key in match[1].split('.'):
+                    value = value[key]
+                expected = 'avjpl/tasks-app' if match[2] == 'github.repository' else match[2][1:-1]
+                outcomes.append(value == expected)
+            return all(outcomes)
+        good = {'conclusion': 'success', 'event': 'push', 'head_branch': 'main',
+                'head_repository': {'full_name': 'avjpl/tasks-app'}}
+        self.assertTrue(permitted(good))
+        for field, value in [('event', 'pull_request'), ('head_branch', 'feature'), ('conclusion', 'failure'),
+                             ('head_repository', {'full_name': 'attacker/tasks-app'})]:
+            with self.subTest(field=field):
+                self.assertFalse(permitted(dict(good, **{field: value})))
+
+    def test_trusted_revision_check_precedes_checkout_and_key_exposure(self):
+        marker = '      - name: Verify tested main revision\n'
+        self.assertIn(marker, self.workflow)
+        self.assertLess(self.workflow.index(marker), self.workflow.index('uses: actions/checkout@'))
+        self.assertLess(self.workflow.index(marker), self.workflow.index('ssh-key:'))
+        match = re.search(r'(?ms)^      - name: Verify tested main revision\n.*?^        run: \|\n((?:          [^\n]*\n)+)', self.workflow)
+        self.assertIsNotNone(match)
+        script = '\n'.join(line[10:] for line in match[1].splitlines())
+        with tempfile.TemporaryDirectory() as directory:
+            gh = Path(directory) / 'gh'
+            gh.write_text('#!/bin/sh\nprintf "%s\\n" "$TRUSTED_SHA"\n')
+            gh.chmod(0o755)
+            for tested, trusted, succeeds in [('a' * 40, 'a' * 40, True),
+                                              ('a' * 40, 'b' * 40, False), ('bad', 'a' * 40, False)]:
+                env = dict(os.environ, PATH=directory + os.pathsep + os.environ['PATH'],
+                           TESTED_SHA=tested, TRUSTED_SHA=trusted, GITHUB_REPOSITORY='avjpl/tasks-app')
+                result = subprocess.run(['bash', '-euo', 'pipefail', '-c', script], env=env, capture_output=True, text=True)
+                self.assertEqual(result.returncode == 0, succeeds, result.stderr)
 
 if __name__ == '__main__':
     unittest.main()
