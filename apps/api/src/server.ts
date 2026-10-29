@@ -8,8 +8,11 @@ const app = buildApp(stores);
 
 const shutdown = async (signal: string) => {
   app.log.info({ signal }, 'shutting down');
+
   await app.close();
+
   await stores.close();
+
   process.exit(0);
 };
 

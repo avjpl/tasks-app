@@ -39,6 +39,10 @@ export class MongoTaskStore implements TaskStore {
 
     return documents.map(toTask);
   }
+
+  public async delete(id: string) {
+    console.log({ id });
+  }
 }
 
 export class RedisCacheStore implements CacheStore {
@@ -64,7 +68,9 @@ export async function connectStores(mongodbUri: string, database: string, redisU
   redis.on('error', (error) => console.error('Redis error', error));
 
   await Promise.all([mongo.connect(), redis.connect()]);
+
   const collection = mongo.db(database).collection<TaskDocument>('tasks');
+
   await collection.createIndex({ createdAt: -1 });
 
   return {

@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../../base
+- virtualservice.yaml
+- networkpolicy-istio.yaml
+patches:
+- path: mesh-api.yaml
+- path: mesh-web.yaml
+images:
+- name: tasks-api
+  newName: ghcr.io/avjpl/tasks-api
+  newTag: ecc431d57943
+- name: tasks-web
+  newName: ghcr.io/avjpl/tasks-web
+  newTag: ecc431d57943

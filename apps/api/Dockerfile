@@ -1,20 +1,25 @@
-FROM node:22-alpine AS build
+FROM oven/bun:1.3.10-alpine AS bun
+
+FROM node:22-alpine AS base
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+
+FROM base AS build
 WORKDIR /workspace
-COPY package.json package-lock.json ./
+COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
-RUN npm ci
+RUN bun install --frozen-lockfile
 COPY tsconfig.base.json ./
 COPY apps/api apps/api
-RUN npm run build --workspace @tasks/api
+RUN bun run --filter @tasks/api build
 
-FROM node:22-alpine AS runtime
+FROM base AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
-RUN npm ci --omit=dev --workspace @tasks/api && npm cache clean --force
+RUN bun install --frozen-lockfile --production --filter @tasks/api && bun pm cache rm
 COPY --from=build /workspace/apps/api/dist apps/api/dist
 USER 1000:1000
 EXPOSE 3000

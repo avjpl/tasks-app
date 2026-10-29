@@ -42,6 +42,19 @@ class MemoryCache implements CacheStore {
 }
 
 describe('tasks API', () => {
+  it('reports unfinished deletion without removing an existing task', async () => {
+    const tasks = new MemoryTasks();
+    const task = await tasks.create({ title: 'Keep existing data' });
+    const app = buildApp({ cacheStore: new MemoryCache(), taskStore: tasks });
+    try {
+      const response = await app.inject({ method: 'DELETE', url: `/api/tasks/${task.id}` });
+      expect(response.statusCode).toBe(501);
+      expect(await tasks.list()).toEqual([task]);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('rejects an empty task', async () => {
     const app = buildApp({ cacheStore: new MemoryCache(), taskStore: new MemoryTasks() });
     const response = await app.inject({

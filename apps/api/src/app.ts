@@ -50,5 +50,9 @@ export function buildApp(dependencies: AppDependencies) {
     return reply.code(201).send(task);
   });
 
+  app.delete('/api/tasks/:id', async (_request, reply) => {
+    return reply.code(501).send({ message: 'Task deletion is not implemented' });
+  });
+
   return app;
 }

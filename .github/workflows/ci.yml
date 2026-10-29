@@ -13,6 +13,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.35.0
+      - run: pip install -r requirements-deployment.txt
+      - run: python -B -m unittest discover -s tests/deployment
+      - run: python -B scripts/validate-deployment.py
+
   quality:
     runs-on: ubuntu-latest
     steps:
@@ -20,20 +34,19 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-
-      - name: Deployment promotion tests
-        run: python3 -B -m unittest discover -s tests/deployment
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+      - run: bun install --frozen-lockfile
 
       - name: Biome check
-        run: npm run check
+        run: bun run check
 
       - name: TypeScript check
-        run: npm run typecheck
+        run: bun run typecheck
 
       - name: Unit tests
-        run: npm run test
+        run: bun run test
 
       - name: Production builds
-        run: npm run build
+        run: bun run build

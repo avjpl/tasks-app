@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tasks-api-config
+  namespace: tasks-app
+data:
+  HOST: 0.0.0.0
+  MONGODB_DB: tasks
+  PORT: "3000"

@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tasks-app
+  namespace: argocd-app-tasks-app
+spec:
+  project: tasks-app
+  source:
+    repoURL: git@github.com:avjpl/tasks-app.git
+    targetRevision: main
+    path: deploy/overlays/homelab
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tasks-app
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

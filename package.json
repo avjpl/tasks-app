@@ -2,6 +2,7 @@
   "name": "tasks-app",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "bun@1.3.10",
   "engines": {
     "node": ">=22"
   },
@@ -10,15 +11,15 @@
     "apps/web"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "bun run --filter './apps/*' build",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "dev:api": "npm run dev --workspace @tasks/api",
-    "dev:web": "npm run dev --workspace @tasks/web",
+    "dev:api": "bun run --filter @tasks/api dev",
+    "dev:web": "bun run --filter @tasks/web dev",
     "lint": "biome lint .",
-    "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "validate": "npm run check && npm run typecheck && npm run test && npm run build"
+    "test": "bun run --filter './apps/*' test",
+    "typecheck": "bun run --filter './apps/*' typecheck",
+    "validate": "bun run check && bun run typecheck && bun run test && bun run build"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.0",

@@ -6,4 +6,8 @@ node_modules
 coverage
 .env*
 README.md
-
+deploy
+argocd
+tests/deployment
+scripts
+requirements-deployment.txt
