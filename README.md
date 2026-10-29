@@ -100,7 +100,9 @@ use that revision's successful CI run. After a completed promotion, rerunning th
 old workflow is rejected by the current-main guard; rerunning the promoter alone
 is a no-op when the remote already selects that exact image pair.
 
-Image rollback is a reviewed change to a known-good matching pair of tags. It is
+For a manual image rollback, pause release automation before selecting a known-good
+matching pair of tags: otherwise comparison with the older source can rebuild the
+current source. Validate the rollback and decide when to resume releases. This is
 not a database rollback. For source-location recovery restore the old manifest
 path and exact platform permissions before switching the existing registration;
 never recreate Applications, Namespace or database PVCs.
