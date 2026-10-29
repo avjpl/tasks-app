@@ -10,7 +10,7 @@ patches:
 images:
 - name: tasks-api
   newName: ghcr.io/avjpl/tasks-api
-  newTag: ecc431d57943
+  newTag: "0655c67c48c2"
 - name: tasks-web
   newName: ghcr.io/avjpl/tasks-web
-  newTag: ecc431d57943
+  newTag: "0655c67c48c2"
