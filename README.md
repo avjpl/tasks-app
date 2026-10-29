@@ -76,24 +76,31 @@ the dependency-independent `/api/health` endpoint. Preserve database Pods/PVCs.
 The workflow in `.github/workflows/release.yml` runs after successful CI for a
 push to `main` in this repository:
 
-1. **Check out the tested commit** using `actions/checkout`.
-2. **Publish API and web images** to GHCR using Docker actions. The metadata
-   action generates a shared tag from the first 12 characters of the tested
-   commit SHA.
-3. **Check that the release is current** using `actions/github-script`. If a
-   newer commit is already on `main`, the workflow stops before updating deployment.
-4. **Check out the deployment repository** using `actions/checkout` and the
-   existing `DEPLOYMENTS_SSH_KEY` secret.
-5. **Update the two image tags** in
-   `applications/tasks-app/overlays/homelab/kustomization.yaml` using `mikefarah/yq`.
-6. **Commit and push that file** using `stefanzweifel/git-auto-commit-action`.
-   Argo CD detects the change and deploys the new images automatically.
+1. Verify the tested revision is still current, then check out that exact commit.
+2. Compare source/build inputs against the currently promoted source revision.
+   Skip image builds for deployment/docs-only changes. Compare against the last
+   promoted source, not the previous commit, so an outstanding source change is
+   not lost behind a later manifest edit.
+3. Publish API/web images tagged with the first 12 characters of the tested SHA.
+4. Check out current main separately. `scripts/promote-colocated.py` validates a
+   disposable candidate and changes only the two image tags in
+   `deploy/overlays/homelab/kustomization.yaml`.
+5. Push the promotion commit to this repository using `GITHUB_TOKEN`; Argo CD
+   reconciles it. Stale source and concurrent pushes are rejected without rebasing
+   or force-pushing. The caller's checkout is never rewritten.
 
-`DEPLOYMENTS_SSH_KEY` must have write access to `avjpl/application-deployments`.
-The source repository's `GITHUB_TOKEN` is used for GitHub API access and publishing
-images to GHCR; it does not write to the deployment repository.
+Only the release job has contents/packages write permissions. Its bot push using
+`GITHUB_TOKEN` does not trigger another push workflow, preventing recursive builds.
+The candidate render is validated before push because that commit will not get
+ordinary push CI. No cross-repository write key is required. Argo uses separate
+read-only repository access.
 
-Release runs are serialized. A conflicting update to the deployment repository
-causes the push to fail rather than retry or force-push. Rerun the failed release
-job from the GitHub Actions UI if the tested commit is still current on `main`.
-If it has been superseded, use the newer commit's successful CI release instead.
+Release runs are serialized. If a newer source revision supersedes a release,
+use that revision's successful CI run. After a completed promotion, rerunning the
+old workflow is rejected by the current-main guard; rerunning the promoter alone
+is a no-op when the remote already selects that exact image pair.
+
+Image rollback is a reviewed change to a known-good matching pair of tags. It is
+not a database rollback. For source-location recovery restore the old manifest
+path and exact platform permissions before switching the existing registration;
+never recreate Applications, Namespace or database PVCs.

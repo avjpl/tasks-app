@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: production-release
@@ -18,52 +17,11 @@ jobs:
   publish-and-promote:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     steps:
-      - name: Check out the exact tested revision
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Sign in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate image tag from the tested commit
-        id: meta
-        uses: docker/metadata-action@v6
-        env:
-          DOCKER_METADATA_SHORT_SHA_LENGTH: 12
-        with:
-          context: git
-          tags: type=sha,prefix=
-
-      - name: Build and push API
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/tasks-api:${{ steps.meta.outputs.version }}
-          cache-from: type=gha,scope=tasks-api
-          cache-to: type=gha,mode=max,scope=tasks-api
-
-      - name: Build and push web
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: apps/web/Dockerfile
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/tasks-web:${{ steps.meta.outputs.version }}
-          cache-from: type=gha,scope=tasks-web
-          cache-to: type=gha,mode=max,scope=tasks-web
-
-      - name: Verify the tested commit is still current on main
+      - name: Verify the tested revision is still current
         uses: actions/github-script@v9
         with:
           script: |
@@ -72,34 +30,82 @@ jobs:
               ...context.repo,
               ref: 'heads/main',
             });
-
-            if (main.object.sha !== testedSha) {
-              core.setFailed('A newer commit is on main. Its successful CI run will publish the next release.');
+            if (!/^[0-9a-f]{40}$/.test(testedSha) || main.object.sha !== testedSha) {
+              core.setFailed('Tested revision is invalid or superseded; refusing release.');
             }
 
-      - name: Check out deployment desired state
+      - name: Check out the exact tested revision
         uses: actions/checkout@v7
         with:
-          repository: avjpl/application-deployments
-          ref: main
-          path: deployments
-          ssh-key: ${{ secrets.DEPLOYMENTS_SSH_KEY }}
-          ssh-strict: true
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          path: source
+          persist-credentials: false
 
-      - name: Update API and web image tags
-        uses: mikefarah/yq@v4.54.1
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: v1.35.0
+      - run: pip install -r source/requirements-deployment.txt
+
+      - name: Compare build inputs with the last promoted source
+        id: decision
         env:
-          IMAGE_TAG: ${{ steps.meta.outputs.version }}
-        with:
-          cmd: >-
-            yq -i '(.images[] | select(.name == "tasks-api" or .name == "tasks-web")).newTag = strenv(IMAGE_TAG)'
-            deployments/applications/tasks-app/overlays/homelab/kustomization.yaml
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: python -B source/scripts/promote-colocated.py source "$TESTED_SHA" --check-build >> "$GITHUB_OUTPUT"
 
-      - name: Commit and push deployment update for Argo CD
-        uses: stefanzweifel/git-auto-commit-action@v7
+      - name: Generate immutable image tag
+        id: meta
+        env:
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: echo "tag=${TESTED_SHA:0:12}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        if: steps.decision.outputs.build == 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - name: Sign in to GHCR
+        if: steps.decision.outputs.build == 'true'
+        uses: docker/login-action@v4
         with:
-          repository: deployments
-          branch: main
-          file_pattern: applications/tasks-app/overlays/homelab/kustomization.yaml
-          commit_message: "chore(deploy): promote tasks-app ${{ steps.meta.outputs.version }}"
-          commit_author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API
+        if: steps.decision.outputs.build == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: source
+          file: source/apps/api/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/tasks-api:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=tasks-api
+          cache-to: type=gha,mode=max,scope=tasks-api
+
+      - name: Build and push web
+        if: steps.decision.outputs.build == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: source
+          file: source/apps/web/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/tasks-web:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=tasks-web
+          cache-to: type=gha,mode=max,scope=tasks-web
+
+      - name: Check out current deployment desired state
+        if: steps.decision.outputs.build == 'true'
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          path: desired
+
+      - name: Validate and promote only the tested image pair
+        if: steps.decision.outputs.build == 'true'
+        env:
+          TESTED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: python -B source/scripts/promote-colocated.py desired "$TESTED_SHA"
