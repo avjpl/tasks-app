@@ -58,18 +58,39 @@ Namespace and PVC identities intact; never empty the watched path to pause Argo.
 
 ## Istio scope
 
-Only API/web Pod templates opt into injection. MongoDB and Redis remain unmeshed,
-and the namespace has no injection label. The overlay allows API/web egress to
-Istiod TCP 15012 before injection. Native sidecars appear in `initContainers` with
-`restartPolicy: Always`. Each proxy requests 100m CPU / 128Mi and is limited to
-500m / 256Mi; startup waits for proxy readiness. Rollouts use zero unavailable,
-one surge and ten seconds of minimum readiness.
+Only API/web Pod templates opt into **ambient** with
+`istio.io/dataplane-mode: ambient`; neither application has an Envoy sidecar.
+MongoDB and Redis remain unmeshed, and the namespace has no mesh enrollment label.
+Infrastructure-managed CNI/ztunnel provide the node-level data plane.
 
-Gateway-to-API/web uses automatic mTLS with permissive inbound policy. Database
-connections are outside mesh mTLS. For mesh rollback remove the relevant overlay
-patch one Deployment at a time; keep Istiod egress until injected Pods are gone.
-Validate task reads/cache behavior and destination `mutual_tls` metrics, not just
-the dependency-independent `/api/health` endpoint. Preserve database Pods/PVCs.
+Both Services explicitly use `tasks-waypoint`, including ingress traffic. Its
+Gateway and customization ConfigMap configure two replicas on separate workers,
+200m CPU / 256Mi requests and 1000m / 512Mi limits per replica, and a disruption
+budget retaining one replica. Istiod owns the generated Deployment/Service/account;
+edit the Gateway inputs rather than those generated objects.
+
+The normal path is ingress → waypoint → destination ztunnel → application, with
+HBONE/mTLS between mesh proxies. The platform scrapes waypoint HTTP and ztunnel TCP
+metrics; Grafana dashboard **Tasks App Ambient HTTP** separates API/web traffic
+using `reporter="waypoint"`. Logs remain available in Loki. Database connections
+remain outside mesh mTLS; this migration adds no STRICT or L7 authorization policy.
+
+Rollouts retain zero unavailable, one surge and ten seconds minimum readiness.
+The application pre-stop delay is 15 seconds within a 45-second termination grace
+period so endpoint removal propagates before the application exits.
+
+For rollback, restore API/web Istiod egress first, then restore sidecar injection
+and resource annotations one Deployment at a time while retaining waypoint routing
+and the drain delay. After the sidecars stabilize, remove the corresponding Service
+waypoint labels in a separate reconciliation. Keep ambient components and HBONE
+NetworkPolicies until no workloads depend on them. Do not remove the entire mesh
+patch blindly: that also removes the rollout/drain safeguards. Historical sidecar
+patches are in Git; retain the current drain settings when restoring them.
+
+Verify actual workload enrollment, waypoint HTTP request/latency metrics and task
+reads/cache HIT/MISS, not just `/api/health`. Preserve database Pods/PVCs. The
+platform's `scripts/validation/istio_ambient.py` provides read-only checks with
+explicit `--context homelab` and a matching Istio 1.31.3 CLI.
 
 ## Continuous delivery
 
