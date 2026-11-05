@@ -11,6 +11,7 @@ resources:
 patches:
 - path: mesh-api.yaml
 - path: mesh-web.yaml
+- path: waypoint-services.yaml
 
 images:
 - name: tasks-api
