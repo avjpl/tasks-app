@@ -6,3 +6,12 @@ metadata:
   labels:
     istio.io/use-waypoint: tasks-waypoint
     istio.io/ingress-use-waypoint: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tasks-web
+  namespace: tasks-app
+  labels:
+    istio.io/use-waypoint: tasks-waypoint
+    istio.io/ingress-use-waypoint: "true"
