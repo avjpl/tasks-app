@@ -4,9 +4,14 @@ resources:
 - ../../base
 - virtualservice.yaml
 - networkpolicy-istio.yaml
+- waypoint-config.yaml
+- waypoint.yaml
+- networkpolicy-ambient.yaml
+
 patches:
 - path: mesh-api.yaml
 - path: mesh-web.yaml
+
 images:
 - name: tasks-api
   newName: ghcr.io/avjpl/tasks-api

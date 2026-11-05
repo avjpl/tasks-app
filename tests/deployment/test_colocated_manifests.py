@@ -29,6 +29,36 @@ class ManifestBoundary(unittest.TestCase):
     def test_accepts_colocated_application(self):
         self.validator.validate_application(self.app)
 
+    def waypoint(self):
+        return {
+            'apiVersion': 'gateway.networking.k8s.io/v1', 'kind': 'Gateway',
+            'metadata': {'name': 'tasks-waypoint', 'namespace': 'tasks-app',
+                         'labels': {'istio.io/waypoint-for': 'service'}},
+            'spec': {'gatewayClassName': 'istio-waypoint',
+                     'infrastructure': {
+                         'labels': {'app.kubernetes.io/name': 'tasks-waypoint'},
+                         'parametersRef': {'group': '', 'kind': 'ConfigMap', 'name': 'tasks-waypoint-options'}},
+                     'listeners': [{'name': 'mesh', 'port': 15008, 'protocol': 'HBONE'}]},
+        }
+
+    def test_accepts_only_reviewed_waypoint_shape(self):
+        self.validator.validate_workloads([self.waypoint()])
+
+    def test_rejects_gateway_group_scope_and_listener_changes(self):
+        for path, value in [('apiVersion', 'networking.istio.io/v1'),
+                            ('metadata.namespace', 'other'), ('metadata.name', 'other'),
+                            ('spec.gatewayClassName', 'istio'),
+                            ('spec.listeners', [{'name': 'http', 'port': 80, 'protocol': 'HTTP'}]),
+                            ('spec.infrastructure.parametersRef.namespace', 'other')]:
+            waypoint = self.waypoint()
+            target = waypoint
+            keys = path.split('.')
+            for key in keys[:-1]:
+                target = target[key]
+            target[keys[-1]] = value
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                self.validator.validate_workloads([waypoint])
+
     def test_rejects_old_and_cross_paired_sources(self):
         new = self.app['spec']['source']
         old_repo = 'git@github.com:avjpl/application-deployments.git'

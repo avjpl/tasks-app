@@ -7,6 +7,13 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = {'repoURL': 'git@github.com:avjpl/tasks-app.git',
           'targetRevision': 'main', 'path': 'deploy/overlays/homelab'}
+WAYPOINT_SPEC = {
+    'gatewayClassName': 'istio-waypoint',
+    'infrastructure': {
+        'labels': {'app.kubernetes.io/name': 'tasks-waypoint'},
+        'parametersRef': {'group': '', 'kind': 'ConfigMap', 'name': 'tasks-waypoint-options'}},
+    'listeners': [{'name': 'mesh', 'port': 15008, 'protocol': 'HBONE'}],
+}
 
 
 def validate_application(document: dict) -> None:
@@ -35,6 +42,12 @@ def validate_workloads(objects: list[dict]) -> None:
         if obj.get('kind') == 'Namespace':
             if meta.get('name') != 'tasks-app':
                 raise ValueError('Only the existing tasks-app namespace is allowed')
+        elif obj.get('kind') == 'Gateway':
+            if (obj.get('apiVersion') != 'gateway.networking.k8s.io/v1'
+                    or meta.get('namespace') != 'tasks-app' or meta.get('name') != 'tasks-waypoint'
+                    or meta.get('labels', {}).get('istio.io/waypoint-for') != 'service'
+                    or obj.get('spec') != WAYPOINT_SPEC):
+                raise ValueError('Only the reviewed tasks waypoint Gateway is allowed')
         elif obj.get('kind') not in allowed or meta.get('namespace') != 'tasks-app':
             raise ValueError('Resource outside the platform-approved workload boundary')
 

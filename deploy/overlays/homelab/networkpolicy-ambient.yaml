@@ -1,0 +1,51 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: waypoint-ingress
+  namespace: tasks-app
+  annotations: {argocd.argoproj.io/sync-wave: "-1"}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: tasks-waypoint}}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: istio-ingress}}
+          podSelector: {matchLabels: {app: istio-ingress, istio: ingress}}
+      ports: [{port: 15008, protocol: TCP}]
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: monitoring}}
+          podSelector: {matchLabels: {app.kubernetes.io/name: prometheus}}
+      ports: [{port: 15090, protocol: TCP}]
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: istio-system}}
+          podSelector: {matchLabels: {app: istiod}}
+      ports: [{port: 15012, protocol: TCP}]
+    - to:
+        - podSelector:
+            matchExpressions:
+              - {key: app.kubernetes.io/name, operator: In, values: [tasks-api, tasks-web]}
+      ports: [{port: 15008, protocol: TCP}, {port: 3000, protocol: TCP}, {port: 8080, protocol: TCP}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: waypoint-to-applications
+  namespace: tasks-app
+  annotations: {argocd.argoproj.io/sync-wave: "-1"}
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: app.kubernetes.io/name, operator: In, values: [tasks-api, tasks-web]}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app.kubernetes.io/name: tasks-waypoint}}
+      ports: [{port: 15008, protocol: TCP}, {port: 3000, protocol: TCP}, {port: 8080, protocol: TCP}]
+    # Preserve direct gateway HBONE for a safe rollback from waypoint routing.
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: istio-ingress}}
+          podSelector: {matchLabels: {app: istio-ingress, istio: ingress}}
+      ports: [{port: 15008, protocol: TCP}]
+    - from: [{ipBlock: {cidr: 169.254.7.127/32}}]
+      ports: [{port: 3000, protocol: TCP}, {port: 8080, protocol: TCP}]

@@ -1,0 +1,12 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: tasks-waypoint
+  namespace: tasks-app
+  labels: {istio.io/waypoint-for: service}
+spec:
+  gatewayClassName: istio-waypoint
+  infrastructure:
+    labels: {app.kubernetes.io/name: tasks-waypoint}
+    parametersRef: {group: "", kind: ConfigMap, name: tasks-waypoint-options}
+  listeners: [{name: mesh, port: 15008, protocol: HBONE}]
