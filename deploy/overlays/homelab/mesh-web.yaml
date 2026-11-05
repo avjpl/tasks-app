@@ -20,3 +20,10 @@ spec:
         sidecar.istio.io/proxyMemory: "128Mi"
         sidecar.istio.io/proxyCPULimit: "500m"
         sidecar.istio.io/proxyMemoryLimit: "256Mi"
+    spec:
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: web
+          lifecycle:
+            preStop:
+              sleep: {seconds: 15}
